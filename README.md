@@ -4,6 +4,8 @@ Builds the best Commander deck from the cards you already own. Point it at your 
 
 ---
 
+![Overview of the GUI](images/overview.png)
+
 ## Getting Started
 
 Download the latest release from the [Releases](../../releases) page and double-click `MTGDeckBuilder.exe` to run. No Python or installation required.
