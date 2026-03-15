@@ -56,11 +56,6 @@ Progress is shown in the **Log** tab. When it finishes, the app switches to the 
 The **Deck Output** tab shows the full 99-card list, along with a **collection coverage summary** — how many cards were picked directly, how many were NLP-matched from your collection, and how many are basic lands.
 
 Use **Copy to clipboard** to paste straight into Moxfield, Archidekt, or any other deckbuilder.
-
-### 8. Check Upgrade Suggestions **DONT USE YET.**
-The **Upgrade Suggestions** tab (populated automatically after the build) lists the top cards you *don't* own that community decks include most often. Use it as a shopping list to improve the deck over time.
-
-This was a cool idea, but honestly, it's pulling from COMMUNITY decks. If they are bad, you'll be wasting money. Will be looking into this shortly to match against ECDH decks.
 ---
 
 ## Tips
