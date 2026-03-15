@@ -1,0 +1,8 @@
+scikit-learn
+numpy
+pandas
+requests
+beautifulsoup4
+tqdm
+joblib
+pyinstaller

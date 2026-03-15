@@ -1,0 +1,9 @@
+build\
+built_decks\
+community_decks\
+data\
+dist\
+models\
+
+owned_cards.txt
+MTGDeckBuilder.spec
