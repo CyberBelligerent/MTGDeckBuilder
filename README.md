@@ -2,6 +2,10 @@
 
 Builds the best Commander deck from the cards you already own. Point it at your collection, pick a commander, and it uses machine learning trained on real community decks to recommend the strongest 99-card list from what you have.
 
+## Originally posted on r/EDH
+
+I just wanna give a huge thanks for the input i got from the community! Next steps will be helping with importing cards from other websites rather than decks. Hopefully make a way to sync your cards to these websites eith frequent pulling so you dont have to add in multiple different places!
+
 ---
 
 ![Overview of the GUI](images/overview.png)
