@@ -167,7 +167,7 @@ def fetch_decks(commander_name: str, n_decks: int = 100, output_file: str = None
     for i, deck_id in enumerate(remaining_ids, already_have + 1):
         if len(decks) - already_have >= need:
             break
-        print(f"  [{i:>3}/{n_decks}] Deck ID {deck_id}")
+        print(f"  [{i:>3}/{n_decks}] Deck ID {deck_id} - MTGGoldFish")
         deck = download_deck(session, deck_id, commander_name)
         if deck:
             decks.append(deck)
