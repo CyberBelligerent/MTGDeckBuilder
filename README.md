@@ -23,6 +23,25 @@ Download the latest release from the [Releases](../../releases) page and double-
 
 > **First launch is slow.** The executable unpacks itself on startup — expect 15–30 seconds before the window appears. Subsequent launches are faster.
 
+## Building from source
+Follow the below commands to build from source and setup your environment if you're on MacOS or Linux
+
+First, ensure you have the following downloaded:
+- Git
+- Python
+
+**Depending on your installation, you may have to do python or python3**
+
+> git clone https://github.com/CyberBelligerent/MTGDeckBuilder
+> cd MTGDeckBuilder
+> python -m pip install -r requirements.txt
+> python gui.py
+
+This will allow you to run the UI! If you want to build a single executable for you, you can run
+> python build.py
+
+This will create an executable for you to double click and run!
+
 ---
 
 ## Building Your First Deck
