@@ -6,7 +6,7 @@ Builds the best Commander deck from the cards you already own. Point it at your 
 
 I just wanna give a huge thanks for the input i got from the community! Next steps will be helping with importing cards from other websites rather than decks. Hopefully make a way to sync your cards to these websites eith frequent pulling so you dont have to add in multiple different places!
 
-## War Forward
+## Way Forward
 While I have a lot I want to work on, I'll be working to add these features asap for new adopters:
 - Import card collection from MoxField (Various sources)
 - Import card collection from ManaBox (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oaozw3x/?context=1)
