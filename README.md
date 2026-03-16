@@ -11,7 +11,7 @@ While I have a lot I want to work on, I'll be working to add these features asap
 - Import card collection from MoxField (Various sources)
 - Import card collection from ManaBox (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oaozw3x/?context=1)
 - Showing working progress during model training (Just a simple Still Training...) (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oap716m/)
-- Fixing importing cards that have additional information attached to them (I.E. Set, card ID, price) so the program still recognizes the card (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oap91nm/)
+- ~~Fixing importing cards that have additional information attached to them (I.E. Set, card ID, price) so the program still recognizes the card~~ Fixed in v1.1 - Bulk Insert (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oap91nm/)
 
 ---
 
