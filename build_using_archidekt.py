@@ -24,6 +24,8 @@ HEADERS = {
 }
 
 def commander_to_slug(name: str) -> str:
+    # For DFC cards ("Front // Back"), use only the front face for slug generation
+    name = name.split(' // ')[0]
     slug = name.lower()
     slug = re.sub(r"[',\.]", '', slug)
     slug = re.sub(r'[\s_]+', '-', slug)
@@ -62,11 +64,13 @@ def _get(session: requests.Session, url: str, params: dict = None) -> requests.R
 def search_deck_ids(session: requests.Session, commander_name: str, n_decks: int) -> list:
     deck_ids = []
     page = 1
+    # For DFC cards use only the front face (how users title their decks)
+    search_name = commander_name.split(' // ')[0]
 
     while len(deck_ids) < n_decks:
         print(f"  Search page {page}...")
         resp = _get(session, f"{BASE_URL}/decks/v3/", params={
-            "name":       commander_name,
+            "name":       search_name,
             "deckFormat": 3,
             "orderBy":    "-viewCount",
             "pageSize":   PAGE_SIZE,
@@ -133,10 +137,16 @@ def fetch_deck(session: requests.Session, deck_id: int, commander_name: str) -> 
             print(f"    Skipping malformed card entry in deck {deck_id}: {e}")
             continue
 
-    # Verify this is actually a deck for the right commander (Weidly happens every now and again?)
-    if actual_commander and actual_commander.lower() != commander_name.lower():
-        print(f"    Skipping deck {deck_id}: commander is '{actual_commander}'")
-        return None
+    # Verify this is actually a deck for the right commander (Weirdly happens every now and again?)
+    # Also handle DFC cards: actual_commander may be "Front // Back" while commander_name is "Front"
+    if actual_commander:
+        ac_lower  = actual_commander.lower()
+        cn_lower  = commander_name.lower()
+        cn_front  = cn_lower.split(' // ')[0]
+        ac_front  = ac_lower.split(' // ')[0]
+        if ac_front != cn_front:
+            print(f"    Skipping deck {deck_id}: commander is '{actual_commander}'")
+            return None
 
     if not cards:
         return None

@@ -3,6 +3,9 @@
 import json
 import os
 import re
+import threading
+import time
+from contextlib import contextmanager
 import numpy as np
 import pandas as pd
 from collections import Counter
@@ -174,13 +177,45 @@ def load_owned_cards(path: str) -> set:
             owned.add(line)
     return owned
 
+# Added so people know the program didn't crash!
+@contextmanager
+def _heartbeat(message: str, interval: int = 10):
+    stop = threading.Event()
+    def _beat():
+        while not stop.wait(interval):
+            print(message)
+    t = threading.Thread(target=_beat, daemon=True)
+    t.start()
+    try:
+        yield
+    finally:
+        stop.set()
+
 
 def commander_to_slug(name: str) -> str:
+    # For DFC cards ("Front // Back"), use only the front face for slug generation
+    name = name.split(' // ')[0]
     slug = name.lower()
     slug = re.sub(r"[',\.]", '', slug)
     slug = re.sub(r'[\s_]+', '-', slug)
     slug = re.sub(r'[^a-z0-9\-]', '', slug)
     return slug
+
+# This method was largely updated to include the fix for double facing card names (NAME // NAME)
+#   And returning the full name if partial was given
+def resolve_commander_name(commander_name: str, cards_json_path: str) -> str:
+    name_lower = commander_name.lower()
+    with open(cards_json_path, 'r', encoding='utf-8') as f:
+        cards = json.load(f)
+    for card in cards:
+        full_name = card.get('name', '')
+        if full_name.lower() == name_lower:
+            return full_name
+    for card in cards:
+        full_name = card.get('name', '')
+        if full_name.lower().startswith(name_lower + ' //'):
+            return full_name
+    return commander_name
 
 
 def get_commander_colors(commander_name: str, cards_json_path: str) -> list:
@@ -189,6 +224,11 @@ def get_commander_colors(commander_name: str, cards_json_path: str) -> list:
         cards = json.load(f)
     for card in cards:
         if card.get('name', '').lower() == name_lower:
+            return card.get('color_identity', [])
+    # DFC prefix fallback
+    for card in cards:
+        full_name = card.get('name', '')
+        if full_name.lower().startswith(name_lower + ' //'):
             return card.get('color_identity', [])
     return []
 
@@ -480,7 +520,8 @@ def get_or_train_model(model_path: str, decks: list, card_df: pd.DataFrame, all_
 
     X, Y = np.array(X), np.array(Y)
     model = MultiOutputClassifier(RandomForestClassifier(n_estimators=100, n_jobs=-1))
-    model.fit(X, Y)
+    with _heartbeat("  Still training..."):
+        model.fit(X, Y)
     joblib.dump(model, model_path)
     print(f"  Model saved: {model_path}")
     return model, type_cols
@@ -965,6 +1006,7 @@ def compute_community_averages(deck_json_path: str, feature_csv: str) -> dict:
 
 # Trains an actual Panda model and saves it as a .joblib file to be used later when making decks
 def create_model(commander_name: str, deck_json: str = None, model_path: str = None, redownload: bool = False, cards_json: str = CARD_FILE, feature_csv: str = FEATURE_CSV, n_decks: int = 100) -> str:
+    commander_name = resolve_commander_name(commander_name, cards_json)
     slug       = commander_to_slug(commander_name)
     os.makedirs(COMMUNITY_DECKS_DIR, exist_ok=True)
     os.makedirs(MODELS_DIR,          exist_ok=True)
@@ -981,7 +1023,8 @@ def create_model(commander_name: str, deck_json: str = None, model_path: str = N
     if commander_colors:
         print(f"      Color identity: {' '.join(commander_colors) or 'Colorless'}")
     else:
-        print(f"      WARNING: Commander not found — no color filter applied.")
+        print(f"      WARNING: Commander not found. Aborting...")
+        return False
 
     print(f"\n[2/4] Fetching community decks...")
     decks = scrape_commander_decks(commander_name, deck_json, n_decks,
@@ -1014,10 +1057,12 @@ def create_model(commander_name: str, deck_json: str = None, model_path: str = N
 
     get_or_train_model(model_path, decks, card_df, all_cards)
     print(f"\n  Model ready: {model_path}")
-    return model_path
+    return True
+    #return model_path
 
 
 def build_deck(commander_name: str, owned_path: str, deck_json: str = None, model_path: str = None, cards_json: str = CARD_FILE, feature_csv: str = FEATURE_CSV, n_lands: int = N_LAND_TARGET, targets: dict = None, strategy: str = "default", role_minimums: dict = None, nonbasic_counts: dict | None = None) -> list:
+    commander_name = resolve_commander_name(commander_name, cards_json)
     slug         = commander_to_slug(commander_name)
     deck_json    = deck_json  or os.path.join(COMMUNITY_DECKS_DIR, f"{slug}_decks.json")
     model_path   = model_path or os.path.join(MODELS_DIR,          f"{slug}_model.joblib")
@@ -1171,11 +1216,12 @@ def build_deck(commander_name: str, owned_path: str, deck_json: str = None, mode
     print(f"\n  Phase A: Greedy build "
           f"({n_non_land} non-land slots, {len(owned_non_land)} candidates, "
           f"synergy_factor={SYNERGY_PHASE_WEIGHT})")
-    deck_non_land = greedy_deck_builder(
-        card_df, owned_non_land, _targets, n_non_land,
-        synergy_scores=card_score,
-        synergy_factor=SYNERGY_PHASE_WEIGHT,
-    )
+    with _heartbeat("  Still building..."):
+        deck_non_land = greedy_deck_builder(
+            card_df, owned_non_land, _targets, n_non_land,
+            synergy_scores=card_score,
+            synergy_factor=SYNERGY_PHASE_WEIGHT,
+        )
     deck_set       = set(deck_non_land)
     n_owned_direct = len(deck_non_land)
 

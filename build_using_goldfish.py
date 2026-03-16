@@ -24,10 +24,24 @@ HEADERS = {
 }
 
 def commander_to_slug(name: str) -> str:
+    # For DFC cards ("Front // Back"), use only the front face for slug generation
+    name = name.split(' // ')[0]
     slug = name.lower()
     slug = re.sub(r"[',\.]", '', slug)
     slug = re.sub(r'[\s_]+', '-', slug)
     slug = re.sub(r'[^a-z0-9\-]', '', slug)
+    return slug
+
+# Found an interesting issue with MTGGoldFish, sometimes a commander is at /archetype/commander-{slug}/decks
+#   sometimes it's at /archetype/{slug}/decks. This helps probe commander first and then full back to regular slug
+def _resolve_goldfish_archetype(session: requests.Session, slug: str) -> str:
+    candidate = f"commander-{slug}"
+    resp = _get(session, f"{BASE_URL}/archetype/{candidate}/decks?page=1")
+    if resp:
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        if soup.find_all('a', href=re.compile(r'^/deck/\d+$')):
+            print(f"  Using Goldfish archetype path: {candidate}")
+            return candidate
     return slug
 
 def _sleep():
@@ -61,12 +75,13 @@ def _get(session: requests.Session, url: str) -> requests.Response | None:
     return None
 
 def get_deck_ids(session: requests.Session, commander_name: str, n_decks: int) -> list:
-    slug = commander_to_slug(commander_name)
-    deck_ids = []
-    page = 1
+    slug      = commander_to_slug(commander_name)
+    archetype = _resolve_goldfish_archetype(session, slug)
+    deck_ids  = []
+    page      = 1
 
     while len(deck_ids) < n_decks:
-        url = f"{BASE_URL}/archetype/{slug}/decks?page={page}"
+        url = f"{BASE_URL}/archetype/{archetype}/decks?page={page}"
         print(f"  Deck list page {page}: {url}")
 
         resp = _get(session, url)

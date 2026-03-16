@@ -61,7 +61,7 @@ class DeckBuilderApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("MTG Commander Deck Builder")
+        self.title("MTG Commander Deck Builder - v1.3 - Double Face Commander and MTGGoldFish Fix")
         self.resizable(True, True)
         self.minsize(820, 680)
 
@@ -75,6 +75,8 @@ class DeckBuilderApp(tk.Tk):
 
         self._all_card_names: list[str] = []
         self._legendary_creature_names: list[str] = []
+        self._commander_name_set: dict[str, str] = {}
+        self._dfc_front_face_map: dict[str, str] = {}
 
         # Mana base nonbasic counts (mirrors _DEFAULT_NONBASIC_COUNTS in build_deck.py)
         self._mana_utility_var = tk.IntVar(value=4)
@@ -681,12 +683,33 @@ class DeckBuilderApp(tk.Tk):
         if path:
             self._output_var.set(path)
 
+    def _validate_and_resolve_commander(self, name: str) -> tuple:
+        if not self._commander_name_set:
+            return (name, None)  # data not loaded yet, skip validation
+        name_lower = name.lower()
+        if name_lower in self._commander_name_set:
+            return (self._commander_name_set[name_lower], None)
+        if name_lower in self._dfc_front_face_map:
+            return (self._dfc_front_face_map[name_lower], None)
+        
+        # New last result check for ensuring you don't build on a false commander
+        return (None, f"'{name}' is not a recognized legendary commander. Check spelling or use autocomplete.")
+
     # Actually build the damn deck
     def _start_build(self):
         commander = self._commander_var.get().strip()
         if not commander:
             self._status_var.set("Error: enter a commander name.")
             return
+
+        # New resolved error start if trying to build a deck for a false commander
+        resolved, err = self._validate_and_resolve_commander(commander)
+        if err:
+            self._status_var.set(f"Error: {err}")
+            return
+        if resolved and resolved != commander:
+            self._commander_var.set(resolved)
+            commander = resolved
 
         self._build_btn.configure(state=tk.DISABLED)
         self._cancel_btn.configure(state=tk.NORMAL)
@@ -714,9 +737,13 @@ class DeckBuilderApp(tk.Tk):
             from build_deck import (
                 build_deck, load_card_features, print_deck_report,
                 CARD_FILE, FEATURE_CSV, BUILT_DECKS_DIR, commander_to_slug,
+                resolve_commander_name,
             )
+            commander    = resolve_commander_name(
+                self._commander_var.get().strip(), CARD_FILE)
+            self.after(0, lambda n=commander: self._commander_var.set(n))
             deck, stats = build_deck(
-                commander_name=self._commander_var.get().strip(),
+                commander_name=commander,
                 owned_path=self._owned_var.get(),
                 n_lands=self._n_lands_var.get(),
                 targets=targets,
@@ -725,7 +752,6 @@ class DeckBuilderApp(tk.Tk):
                 nonbasic_counts=nonbasic_counts,
             )
             card_df      = load_card_features(FEATURE_CSV)
-            commander    = self._commander_var.get().strip()
             output_path  = self._output_var.get().strip()
             if not output_path:
                 slug        = commander_to_slug(commander)
@@ -848,14 +874,16 @@ class DeckBuilderApp(tk.Tk):
     def _run_create_model(self):
         try:
             from build_deck import create_model, CARD_FILE, FEATURE_CSV
-            create_model(
+            successful = create_model(
                 commander_name=self._commander_var.get().strip(),
                 redownload=self._rescrape_var.get(),
                 n_decks=self._n_decks_var.get(),
                 cards_json=CARD_FILE,
                 feature_csv=FEATURE_CSV,
             )
-            self.after(0, self._on_create_model_done, True)
+            if not successful:
+                print(f"Commander not found, aborting")
+            self.after(0, self._on_create_model_done, bool(successful))
         except SystemExit as e:
             self.after(0, self._on_create_model_done, False, f"Exited: {e}")
         except Exception as e:
@@ -979,10 +1007,18 @@ class DeckBuilderApp(tk.Tk):
                 from build_deck import FEATURE_CSV
                 df = pd.read_csv(
                     os.path.join(self.BASE_DIR, FEATURE_CSV),
-                    usecols=["name", "legendary", "is_creature"])
+                    usecols=["name", "legendary", "is_creature", "is_planeswalker"])
                 self._all_card_names = sorted(df["name"].tolist())
-                mask = (df["legendary"] == 1) & (df["is_creature"] == 1)
-                self._legendary_creature_names = sorted(df.loc[mask, "name"].tolist())
+                mask = (df["legendary"] == 1) & ((df["is_creature"] == 1))
+                commanders = df.loc[mask, "name"].tolist()
+                self._legendary_creature_names = sorted(commanders)
+                self._commander_name_set = {n.lower(): n for n in commanders}
+                dfc_map = {}
+                for name in commanders:
+                    if " // " in name:
+                        front = name.split(" // ")[0].lower()
+                        dfc_map[front] = name
+                self._dfc_front_face_map = dfc_map
             except Exception:
                 pass  # silently fail
 
@@ -1433,8 +1469,16 @@ class DeckBuilderApp(tk.Tk):
                     usecols=["name", "legendary", "is_creature"])
                 self._all_card_names = sorted(df["name"].tolist())
                 if not self._legendary_creature_names:
-                    mask = (df["legendary"] == 1) & (df["is_creature"] == 1)
-                    self._legendary_creature_names = sorted(df.loc[mask, "name"].tolist())
+                    mask = (df["legendary"] == 1) & ((df["is_creature"] == 1))
+                    commanders = df.loc[mask, "name"].tolist()
+                    self._legendary_creature_names = sorted(commanders)
+                    self._commander_name_set = {n.lower(): n for n in commanders}
+                    dfc_map = {}
+                    for name in commanders:
+                        if " // " in name:
+                            front = name.split(" // ")[0].lower()
+                            dfc_map[front] = name
+                    self._dfc_front_face_map = dfc_map
                 self.after(0, lambda: status.configure(
                     text=f"{len(self._all_card_names):,} cards available.",
                     foreground="gray"))
