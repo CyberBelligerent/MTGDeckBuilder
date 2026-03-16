@@ -32,10 +32,12 @@ First, ensure you have the following downloaded:
 
 **Depending on your installation, you may have to do python or python3**
 
-> git clone https://github.com/CyberBelligerent/MTGDeckBuilder
-> cd MTGDeckBuilder
-> python -m pip install -r requirements.txt
-> python gui.py
+```
+git clone https://github.com/CyberBelligerent/MTGDeckBuilder
+cd MTGDeckBuilder
+python -m pip install -r requirements.txt
+python gui.py
+```
 
 This will allow you to run the UI! If you want to build a single executable for you, you can run
 > python build.py
