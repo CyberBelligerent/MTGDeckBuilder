@@ -10,7 +10,7 @@ I just wanna give a huge thanks for the input i got from the community! Next ste
 While I have a lot I want to work on, I'll be working to add these features asap for new adopters:
 - ~~Import card collection from MoxField (Various sources)~~ Fixed in v1.1 - Bulk Insert (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oap91nm/)
 - ~~Import card collection from ManaBox (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oaozw3x/?context=1)~~ Fixed in v1.1 - Bulk Insert (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oap91nm/)
-- ~~Showing working progress during model training (Just a simple Still Training...)~~(https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oap716m/)~~ Fixed in v1.3 - Double Card Name and MTGGoldFish URL Fix
+- ~~Showing working progress during model training (Just a simple Still Training...)(https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oap716m/)~~ Fixed in v1.3 - Double Card Name and MTGGoldFish URL Fix
 - ~~Fixing importing cards that have additional information attached to them (I.E. Set, card ID, price) so the program still recognizes the card~~ Fixed in v1.1 - Bulk Insert (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oap91nm/)
 
 ---
