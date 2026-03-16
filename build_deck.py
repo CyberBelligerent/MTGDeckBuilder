@@ -498,29 +498,29 @@ def get_or_train_model(model_path: str, decks: list, card_df: pd.DataFrame, all_
         return joblib.load(model_path), type_cols
 
     print(f"  Training on {len(decks)} decks, {len(all_cards)} candidate cards...")
-    X, Y = [], []
-
-    for deck in decks:
-        deck_cards = [c for c in deck["cards"] if c in card_df.index]
-        deck_cards_set = set(deck_cards)
-        if not deck_cards:
-            continue
-        try:
-            deck_df = card_df.loc[deck_cards]
-            vec          = np.mean(deck_df.values, axis=0)
-            avg_cmc      = deck_df['cmc'].mean()
-            std_cmc      = deck_df['cmc'].std()
-            type_pcts    = deck_df[type_cols].sum() / len(deck_df)
-            feature_vec  = np.concatenate([vec, [avg_cmc, std_cmc], type_pcts.values])
-            label        = [1 if c in deck_cards_set else 0 for c in all_cards]
-            X.append(feature_vec)
-            Y.append(label)
-        except Exception:
-            continue
-
-    X, Y = np.array(X), np.array(Y)
-    model = MultiOutputClassifier(RandomForestClassifier(n_estimators=100, n_jobs=-1))
     with _heartbeat("  Still training..."):
+        X, Y = [], []
+
+        for deck in decks:
+            deck_cards = [c for c in deck["cards"] if c in card_df.index]
+            deck_cards_set = set(deck_cards)
+            if not deck_cards:
+                continue
+            try:
+                deck_df = card_df.loc[deck_cards]
+                vec          = np.mean(deck_df.values, axis=0)
+                avg_cmc      = deck_df['cmc'].mean()
+                std_cmc      = deck_df['cmc'].std()
+                type_pcts    = deck_df[type_cols].sum() / len(deck_df)
+                feature_vec  = np.concatenate([vec, [avg_cmc, std_cmc], type_pcts.values])
+                label        = [1 if c in deck_cards_set else 0 for c in all_cards]
+                X.append(feature_vec)
+                Y.append(label)
+            except Exception:
+                continue
+
+        X, Y = np.array(X), np.array(Y)
+        model = MultiOutputClassifier(RandomForestClassifier(n_estimators=100, n_jobs=-1))
         model.fit(X, Y)
     joblib.dump(model, model_path)
     print(f"  Model saved: {model_path}")
