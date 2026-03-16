@@ -1,18 +1,9 @@
-"""
-gui.py — MTG Commander Deck Builder GUI
-
-Wraps build_deck.py with a Tkinter interface.
-Run with:  python gui.py
-"""
-
 import io
 import os
 import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, ttk, scrolledtext
-
-# ── Type-target definitions ───────────────────────────────────────────────────
 
 # (feature_col, display_label, default_fraction, optimizer_weight)
 SLIDER_TYPES = [
@@ -36,9 +27,7 @@ ROLE_MIN_DEFS = [
     ("tutor",       "Tutor",        2),
 ]
 
-
-# ── Redirect stdout so build_deck prints appear in the log widget ─────────────
-
+# Redirects Standard out to my logger instead
 class _StreamRedirect:
     """Forwards write() calls to a tkinter Text widget (thread-safe)."""
 
@@ -63,12 +52,8 @@ class _StreamRedirect:
         raise io.UnsupportedOperation("fileno")
 
 
-# ── Main window ───────────────────────────────────────────────────────────────
-
+# Main window
 class DeckBuilderApp(tk.Tk):
-    # When frozen by PyInstaller (--onefile) __file__ doesn't exist; use the
-    # directory that contains the executable instead so data/, models/, etc.
-    # are created next to the .exe rather than inside a temp-extraction folder.
     if getattr(sys, 'frozen', False):
         BASE_DIR = os.path.dirname(sys.executable)
     else:
@@ -101,10 +86,7 @@ class DeckBuilderApp(tk.Tk):
         self._load_card_names_background()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    # ── UI layout ─────────────────────────────────────────────────────────────
-
     def _build_ui(self):
-        # ── Configuration frame ───────────────────────────────────────────────
         cfg = ttk.LabelFrame(self, text="Configuration", padding=10)
         cfg.pack(fill=tk.X, padx=10, pady=(10, 4))
         cfg.columnconfigure(1, weight=1)
@@ -139,7 +121,7 @@ class DeckBuilderApp(tk.Tk):
         ttk.Checkbutton(opts, text="Force re-scrape",
                         variable=self._rescrape_var).pack(side=tk.LEFT)
 
-        # ── Create Model row ──────────────────────────────────────────────────
+        # Model Row
         model_row = ttk.Frame(cfg)
         model_row.grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=(10, 2))
         self._create_model_btn = ttk.Button(model_row, text="⚙  Create Model",
@@ -148,7 +130,7 @@ class DeckBuilderApp(tk.Tk):
         self._model_status_lbl = ttk.Label(model_row, text="", foreground="gray")
         self._model_status_lbl.pack(side=tk.LEFT, padx=(10, 0))
 
-        # ── Targets frame ─────────────────────────────────────────────────────
+        # Targets frame
         tgt = ttk.LabelFrame(self, text="Deck Targets", padding=10)
         tgt.pack(fill=tk.X, padx=10, pady=4)
         tgt.columnconfigure(1, weight=1)
@@ -216,7 +198,7 @@ class DeckBuilderApp(tk.Tk):
         self._avg_status_lbl.grid(row=avg_row, column=2, columnspan=2,
                                    sticky=tk.W, padx=(8, 0), pady=(8, 0))
 
-        # ── Mana Base (collapsible) ────────────────────────────────────────────
+        # Mana base row
         mana_outer = ttk.Frame(self)
         mana_outer.pack(fill=tk.X, padx=10, pady=(0, 2))
 
@@ -273,7 +255,7 @@ class DeckBuilderApp(tk.Tk):
 
         self._on_mana_changed()  # initialise derived label
 
-        # ── Advanced Deck Configuration (collapsible) ─────────────────────────
+        # Advanced deck config
         adv_outer = ttk.Frame(self)
         adv_outer.pack(fill=tk.X, padx=10, pady=(0, 2))
 
@@ -286,7 +268,6 @@ class DeckBuilderApp(tk.Tk):
 
         self._adv_inner = ttk.Frame(adv_outer, padding=(10, 6, 10, 6),
                                     relief="groove", borderwidth=1)
-        # (packed on demand by _toggle_advanced — hidden by default)
 
         self._adv_inner.columnconfigure(1, weight=0)
         self._adv_inner.columnconfigure(3, weight=0)
@@ -327,7 +308,7 @@ class DeckBuilderApp(tk.Tk):
                         textvariable=var, width=4).grid(
                 row=0, column=i * 2 + 1, sticky=tk.W, padx=(4, 0))
 
-        # ── Action buttons ─────────────────────────────────────────────────────
+        # Action buttons
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill=tk.X, padx=10, pady=4)
 
@@ -355,11 +336,11 @@ class DeckBuilderApp(tk.Tk):
         ttk.Label(btn_frame, textvariable=self._status_var,
                   foreground="gray").pack(side=tk.LEFT, padx=12)
 
-        # ── Tabbed output area ─────────────────────────────────────────────────
+        # Output area
         nb = ttk.Notebook(self)
         nb.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
-        # Tab 0 — Log
+        # Log
         log_frame = ttk.Frame(nb)
         nb.add(log_frame, text="Log")
         self._log = scrolledtext.ScrolledText(
@@ -368,7 +349,7 @@ class DeckBuilderApp(tk.Tk):
             insertbackground="white", wrap=tk.WORD)
         self._log.pack(fill=tk.BOTH, expand=True)
 
-        # Tab 1 — Deck Output
+        # Deck Output
         deck_frame = ttk.Frame(nb)
         nb.add(deck_frame, text="Deck Output")
         deck_toolbar = ttk.Frame(deck_frame)
@@ -387,7 +368,7 @@ class DeckBuilderApp(tk.Tk):
             background="#fafafa", foreground="#1a1a1a", wrap=tk.NONE)
         self._deck_text.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
-        # Tab 2 — Upgrade Suggestions
+        # Upgrade Suggestions
         upg_frame = ttk.Frame(nb)
         nb.add(upg_frame, text="Upgrade Suggestions")
         self._build_upgrades_tab(upg_frame)
@@ -395,8 +376,7 @@ class DeckBuilderApp(tk.Tk):
         self._nb = nb
         self._wire_commander_autocomplete()
 
-    # ── Upgrades tab ──────────────────────────────────────────────────────────
-
+    # Upgrades tabs
     def _build_upgrades_tab(self, parent: ttk.Frame):
         # Toolbar
         toolbar = ttk.Frame(parent)
@@ -532,8 +512,7 @@ class DeckBuilderApp(tk.Tk):
         self._upg_btn.configure(state=tk.NORMAL)
         self._upg_status.configure(text=message)
 
-    # ── Commander field watcher ───────────────────────────────────────────────
-
+    # Commander field watcher
     def _on_commander_changed(self, *_):
         """Auto-fill the output path and refresh model status when commander changes."""
         from build_deck import commander_to_slug, BUILT_DECKS_DIR
@@ -568,8 +547,7 @@ class DeckBuilderApp(tk.Tk):
                 text=f"✗ Missing: {', '.join(missing)}", foreground="red"
             )
 
-    # ── Slider helpers ────────────────────────────────────────────────────────
-
+    # Slide stuff
     def _on_slider(self, var: tk.DoubleVar, col: str):
         pct = round(var.get(), 1)
         var.set(pct)
@@ -640,8 +618,7 @@ class DeckBuilderApp(tk.Tk):
     def _build_role_minimums_dict(self) -> dict:
         return {role: var.get() for role, var in self._role_min_vars.items()}
 
-    # ── Community averages ────────────────────────────────────────────────────
-
+    # Community averages
     def _load_community_averages(self):
         commander = self._commander_var.get().strip()
         if not commander:
@@ -686,8 +663,7 @@ class DeckBuilderApp(tk.Tk):
         if "avg_cmc" in avgs:
             self._cmc_comm_lbl.configure(text=f"avg {avgs['avg_cmc']:.2f}")
 
-    # ── File browsers ─────────────────────────────────────────────────────────
-
+    # File browser for selecting cards
     def _browse_owned(self):
         path = filedialog.askopenfilename(
             title="Select owned cards file",
@@ -705,8 +681,7 @@ class DeckBuilderApp(tk.Tk):
         if path:
             self._output_var.set(path)
 
-    # ── Build pipeline ────────────────────────────────────────────────────────
-
+    # Actually build the damn deck
     def _start_build(self):
         commander = self._commander_var.get().strip()
         if not commander:
@@ -802,45 +777,18 @@ class DeckBuilderApp(tk.Tk):
             f" + {stats['owned_nlp']} NLP",
             f"Lands: {land_parts}",
         ]
-        #if stats.get("mana_profile"):
-        #    profile_str = "  ".join(
-        #        f"{c} {w*100:.0f}%" for c, w in sorted(stats["mana_profile"].items()))
-        #    parts.append(f"Mana: {profile_str}")
-
-        #avg_inc     = stats.get("avg_inclusivity")
-        #avg_mod     = stats.get("avg_model_score")
-        #avg_esyn    = stats.get("avg_edhrec_synergy")
-        #avg_einc    = stats.get("avg_edhrec_inclusion")
-        #n_nb        = stats.get("n_non_basics", 1)
-        #n_mod_sc    = stats.get("n_model_scored", 0)
-        #n_freq_sc   = stats.get("n_freq_scored", 0)
-        #n_edhrec_sc = stats.get("n_edhrec_scored", 0)
-        #if avg_inc is not None and avg_mod is not None:
-        #    parts.append(
-        #        f"Community inclusivity: {avg_inc*100:.1f}% ({n_freq_sc}/{n_nb})  |  "
-        #        f"Model score: {avg_mod*100:.1f}% ({n_mod_sc}/{n_nb})")
-        #if avg_esyn is not None:
-        #    parts.append(
-        #        f"EDHRec synergy: {avg_esyn:+.3f} ({n_edhrec_sc}/{n_nb})  |  "
-        #        f"EDHRec inclusion: {avg_einc*100:.1f}% ({n_edhrec_sc}/{n_nb})")
-
-        #if stats["filler"]:
-        #    parts.append(f"Filler: {stats['filler']}")
 
         self._coverage_lbl.configure(text="    ".join(parts))
 
     def _cancel_build(self):
         self._status_var.set("Cancellation requested — stops after the current step.")
         self._cancel_btn.configure(state=tk.DISABLED)
-
-    # ── Log helpers ───────────────────────────────────────────────────────────
-
+        
+        
     def _clear_log(self):
         self._log.configure(state="normal")
         self._log.delete("1.0", tk.END)
         self._log.configure(state="disabled")
-
-    # ── Deck output helpers ───────────────────────────────────────────────────
 
     def _populate_deck_tab(self, text: str):
         self._deck_text.delete("1.0", tk.END)
@@ -862,8 +810,7 @@ class DeckBuilderApp(tk.Tk):
                 fh.write(self._deck_text.get("1.0", tk.END))
             self._status_var.set(f"Saved → {path}")
 
-    # ── Create model ──────────────────────────────────────────────────────────
-
+    # Model creation
     def _start_create_model(self):
         """Download community decks and train the model for the current commander."""
         commander = self._commander_var.get().strip()
@@ -871,7 +818,7 @@ class DeckBuilderApp(tk.Tk):
             self._model_status_lbl.configure(text="Enter a commander name first.", foreground="red")
             return
 
-        # Pre-flight: both data files must exist before we can do anything
+        # Both data files must exist before we can do anything
         from build_deck import CARD_FILE, FEATURE_CSV
         missing = []
         if not os.path.exists(os.path.join(self.BASE_DIR, CARD_FILE)):
@@ -924,10 +871,8 @@ class DeckBuilderApp(tk.Tk):
         self._refresh_model_status()
         self._status_var.set("Model created." if success else f"Model creation failed — see log.")
 
-    # ── Update card data ──────────────────────────────────────────────────────
-
+    # Update card data, also regenerates all_cards
     def _start_update_card_data(self):
-        """Stream all_cards.json from Scryfall then regenerate mtg_cards_features.csv."""
         self._update_btn.configure(state=tk.DISABLED)
         self._build_btn.configure(state=tk.DISABLED)
         self._status_var.set("Downloading card data…")
@@ -943,7 +888,7 @@ class DeckBuilderApp(tk.Tk):
         import requests
 
         try:
-            # ── Step 1: resolve the download URL from the bulk-data API ──────
+            # Check bulk-data is fine
             print("Fetching Scryfall bulk-data index…")
             resp = requests.get("https://api.scryfall.com/bulk-data", timeout=30)
             resp.raise_for_status()
@@ -961,7 +906,7 @@ class DeckBuilderApp(tk.Tk):
                 self.after(0, self._on_update_done, False)
                 return
 
-            # ── Step 2: stream-download all_cards.json ────────────────────────
+            # Stream the download of all cards
             data_dir = os.path.join(self.BASE_DIR, "data")
             os.makedirs(data_dir, exist_ok=True)
             out_path = os.path.join(data_dir, "all_cards.json")
@@ -987,7 +932,7 @@ class DeckBuilderApp(tk.Tk):
 
             print(f"Download complete ({downloaded / 1_000_000:.1f} MB).\n")
 
-            # ── Step 3: download keyword/ability word catalogs from Scryfall ──
+            # Download additional json files to be used with the model
             catalogs = [
                 ("keyword_abilities.json", "https://api.scryfall.com/catalog/keyword-abilities"),
                 ("keyword_actions.json",   "https://api.scryfall.com/catalog/keyword-actions"),
@@ -1003,7 +948,7 @@ class DeckBuilderApp(tk.Tk):
                 print(f"  ✓ {filename}  ({r.json().get('total_values', '?')} entries)")
             print()
 
-            # ── Step 4: regenerate mtg_cards_features.csv ────────────────────
+            # Create card features
             print("Regenerating mtg_cards_features.csv…")
             from make_card_features import main as _build_features
             _build_features(self.BASE_DIR)
@@ -1023,10 +968,8 @@ class DeckBuilderApp(tk.Tk):
             "Card data updated successfully." if success else "Card data update failed — see log."
         )
 
-    # ── Card name loading ─────────────────────────────────────────────────────
-
+    # Background task for loading card names
     def _load_card_names_background(self):
-        """Load all card names + legendary creature names once at startup."""
         if self._all_card_names:
             return
 
@@ -1041,14 +984,12 @@ class DeckBuilderApp(tk.Tk):
                 mask = (df["legendary"] == 1) & (df["is_creature"] == 1)
                 self._legendary_creature_names = sorted(df.loc[mask, "name"].tolist())
             except Exception:
-                pass  # silently fail — autocomplete just won't work
+                pass  # silently fail
 
         threading.Thread(target=_loader, daemon=True).start()
 
-    # ── Commander autocomplete ─────────────────────────────────────────────────
-
+    # Used to auto-complete commanders when typing
     def _wire_commander_autocomplete(self):
-        """Attach a floating legendary-creature-only dropdown to the Commander entry."""
         drop = tk.Toplevel(self)
         drop.overrideredirect(True)
         drop.withdraw()
@@ -1136,8 +1077,6 @@ class DeckBuilderApp(tk.Tk):
         lb.bind("<ButtonRelease-1>",
                 lambda e: _select(lb.get(lb.nearest(e.y))) if lb.size() else None)
 
-    # ── Menu bar ──────────────────────────────────────────────────────────────
-
     def _build_menu(self):
         menu_bar = tk.Menu(self)
         self.config(menu=menu_bar)
@@ -1167,8 +1106,7 @@ class DeckBuilderApp(tk.Tk):
 
         coll_menu.add_separator()
         coll_menu.add_command(label="Add Card…", command=self._open_add_card_dialog)
-
-    # ── Import ────────────────────────────────────────────────────────────────
+        coll_menu.add_command(label="Bulk Insert…", command=self._open_bulk_insert_dialog)
 
     _PLATFORM_LABELS = {
         "archidekt": "Archidekt",
@@ -1312,8 +1250,6 @@ class DeckBuilderApp(tk.Tk):
             status_lbl.configure(text=f"Error writing file: {e}", foreground="red")
             btn.configure(state=tk.NORMAL)
 
-    # ── Export ────────────────────────────────────────────────────────────────
-
     def _open_export_dialog(self, platform: str):
         label = self._PLATFORM_LABELS[platform]
         dlg = tk.Toplevel(self)
@@ -1389,8 +1325,7 @@ class DeckBuilderApp(tk.Tk):
                 fh.write(content)
             self._status_var.set(f"Exported {len(lines)} cards → {os.path.basename(path)}")
 
-    # ── Add Card ──────────────────────────────────────────────────────────────
-
+    # Add single card
     def _open_add_card_dialog(self):
         dlg = tk.Toplevel(self)
         dlg.title("Add Card to Collection")
@@ -1509,15 +1444,205 @@ class DeckBuilderApp(tk.Tk):
 
         threading.Thread(target=_loader, daemon=True).start()
 
-    # ── Cleanup ───────────────────────────────────────────────────────────────
+    # Add lots of cards
+    # Thanks to comment (https://www.reddit.com/r/EDH/comments/1ruq2h5/comment/oapc23m/?context=1) for bringing this up
+    #   hopefully this solves some issues with adding cards
+    def _parse_card_name_from_line(self, line: str) -> tuple[str | None, str]:
+        import re
+
+        original = line.strip()
+        if not original or original.startswith("//"):
+            return None, original
+
+        s = original
+
+        # Strips quantity
+        s = re.sub(r'^\d+[xX]?\s+', '', s)
+
+        # Strips set codes in [123] or (123)
+        s = re.sub(r'\s*[\(\[][A-Za-z0-9]{2,6}[\)\]]\s*\d*', '', s)
+
+        # Remove collectors numbers
+        s = re.sub(r'\s+\d{1,4}(?:\s|$)', ' ', s)
+
+        # Remove prices
+        s = re.sub(r'\$[\d.]+', '', s)
+        s = re.sub(r'[\d.]+\s*\$', '', s)
+        s = re.sub(r'\b(?:USD|EUR|GBP|usd|eur)\b', '', s)
+        s = re.sub(r'\b\d+\.\d{2}\b', '', s)   # bare price like 1.23
+
+        # Strips additional tags like foil
+        s = re.sub(r'\*[A-Za-z]+\*', '', s)
+        s = re.sub(r'\b(?:Foil|foil|NM|LP|MP|HP|DMG|NM-M|SP)\b', '', s)
+
+        # Get rid of all white space
+        candidate = re.sub(r'\s{2,}', ' ', s).strip()
+
+        if not candidate:
+            return None, candidate
+
+        # Attempts to load from already loaded cards
+        if self._all_card_names:
+            candidate_lower = candidate.lower()
+
+            for name in self._all_card_names:
+                if name.lower() == candidate_lower:
+                    return name, candidate
+
+            # Try to remove trailing characters until a match is found
+            parts = candidate.split()
+            for end in range(len(parts), 0, -1):
+                attempt = " ".join(parts[:end]).strip().lower()
+                for name in self._all_card_names:
+                    if name.lower() == attempt:
+                        return name, candidate
+
+            # Final attempt, do a substring match to see if its a valid card
+            for name in self._all_card_names:
+                if name.lower() in candidate_lower:
+                    return name, candidate
+            return None, candidate
+
+        return candidate, candidate
+
+    def _open_bulk_insert_dialog(self):
+        import re as _re
+
+        dlg = tk.Toplevel(self)
+        dlg.title("Bulk Insert Cards")
+        dlg.geometry("680x560")
+        dlg.resizable(True, True)
+        dlg.transient(self)
+        dlg.grab_set()
+
+        ttk.Label(
+            dlg,
+            text=(
+                "Paste any card list below — one card per line.\n"
+            ),
+            justify=tk.LEFT,
+        ).pack(anchor=tk.W, padx=12, pady=(12, 4))
+
+        input_frame = ttk.Frame(dlg)
+        input_frame.pack(fill=tk.BOTH, expand=True, padx=12)
+
+        input_text = scrolledtext.ScrolledText(
+            input_frame, font=("Consolas", 9), height=10,
+            background="#fafafa", foreground="#1a1a1a", wrap=tk.NONE)
+        input_text.pack(fill=tk.BOTH, expand=True)
+
+        # Preview
+        sep = ttk.Separator(dlg, orient=tk.HORIZONTAL)
+        sep.pack(fill=tk.X, padx=12, pady=(8, 4))
+
+        ttk.Label(dlg, text="Preview (green = matched, orange = unmatched):",
+                  font=("", 9, "bold")).pack(anchor=tk.W, padx=12)
+
+        preview_frame = ttk.Frame(dlg)
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(4, 0))
+
+        preview_text = scrolledtext.ScrolledText(
+            preview_frame, font=("Consolas", 9), height=8, state="disabled",
+            background="#1e1e1e", foreground="#d4d4d4", wrap=tk.NONE)
+        preview_text.pack(fill=tk.BOTH, expand=True)
+        preview_text.tag_configure("matched",   foreground="#6fcf97")
+        preview_text.tag_configure("unmatched", foreground="#f2994a")
+        preview_text.tag_configure("skipped",   foreground="#888888")
+
+        status_lbl = ttk.Label(dlg, text="", foreground="gray")
+        status_lbl.pack(anchor=tk.W, padx=12, pady=(4, 0))
+
+        btn_frame = ttk.Frame(dlg)
+        btn_frame.pack(anchor=tk.E, padx=12, pady=8)
+
+        # State shared between parse and commit
+        _parsed: list[str] = []   # canonical names to add
+
+        def _run_parse():
+            nonlocal _parsed
+            _parsed = []
+            raw_lines = input_text.get("1.0", tk.END).splitlines()
+
+            preview_text.configure(state="normal")
+            preview_text.delete("1.0", tk.END)
+
+            matched_count = 0
+            unmatched_count = 0
+            skipped_count = 0
+
+            for raw in raw_lines:
+                stripped = raw.strip()
+                if not stripped or stripped.startswith("//"):
+                    skipped_count += 1
+                    preview_text.insert(tk.END, f"  (skipped)  {stripped}\n", "skipped")
+                    continue
+
+                name, candidate = self._parse_card_name_from_line(stripped)
+                if name:
+                    _parsed.append(name)
+                    matched_count += 1
+                    preview_text.insert(
+                        tk.END,
+                        f"✓  {name}  ←  {stripped}\n",
+                        "matched",
+                    )
+                else:
+                    unmatched_count += 1
+                    preview_text.insert(
+                        tk.END,
+                        f"?  {candidate or stripped}\n",
+                        "unmatched",
+                    )
+
+            preview_text.configure(state="disabled")
+
+            parts = [f"{matched_count} matched"]
+            if unmatched_count:
+                parts.append(f"{unmatched_count} unmatched (orange lines won't be added)")
+            if skipped_count:
+                parts.append(f"{skipped_count} skipped")
+            status_lbl.configure(
+                text="  |  ".join(parts),
+                foreground="gray" if not unmatched_count else "orange",
+            )
+            add_btn.configure(
+                state=tk.NORMAL if _parsed else tk.DISABLED,
+                text=f"Add {len(_parsed)} Cards" if _parsed else "Add Cards",
+            )
+
+        def _commit():
+            if not _parsed:
+                return
+            owned_path = self._owned_var.get()
+            try:
+                with open(owned_path, "a", encoding="utf-8") as fh:
+                    for name in _parsed:
+                        fh.write(f"{name}\n")
+                status_lbl.configure(
+                    text=f"✓ Added {len(_parsed)} cards to collection.",
+                    foreground="green",
+                )
+                add_btn.configure(state=tk.DISABLED)
+                input_text.delete("1.0", tk.END)
+                preview_text.configure(state="normal")
+                preview_text.delete("1.0", tk.END)
+                preview_text.configure(state="disabled")
+            except Exception as e:
+                status_lbl.configure(text=f"Error: {e}", foreground="red")
+
+        ttk.Button(btn_frame, text="Parse", command=_run_parse).pack(
+            side=tk.LEFT, padx=(0, 6))
+        add_btn = ttk.Button(btn_frame, text="Add Cards",
+                             command=_commit, state=tk.DISABLED)
+        add_btn.pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(btn_frame, text="Close", command=dlg.destroy).pack(side=tk.LEFT)
+
+        input_text.focus_set()
 
     def _on_close(self):
         sys.stdout = self._orig_stdout
         sys.stderr = self._orig_stderr
         self.destroy()
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     app = DeckBuilderApp()
