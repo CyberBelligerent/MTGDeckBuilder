@@ -61,7 +61,7 @@ class DeckBuilderApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("MTG Commander Deck Builder - v1.3 - Double Face Commander and MTGGoldFish Fix")
+        self.title("MTG Commander Deck Builder - v1.3 - DeckSource + Code Readability")
         self.resizable(True, True)
         self.minsize(820, 680)
 
