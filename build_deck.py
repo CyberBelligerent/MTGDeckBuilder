@@ -901,9 +901,8 @@ def find_deck_combos(deck_cards: list, commander_name: str) -> list[dict]:
         uses = [b for b in combo.get("uses", [])]
         cards = [u["card"]["name"] for u in uses]
         
-        for card in cards:
-            if card not in deck_cards:
-                continue
+        if not all(card in deck_cards for card in cards):
+            continue
         
         produces = [p['feature']["name"] for p in combo.get("produces", [])]
 
