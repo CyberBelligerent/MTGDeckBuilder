@@ -1,10 +1,10 @@
-build\
-built_decks\
-community_decks\
-data\
-dist\
-models\
-__pycache__\
+build/
+built_decks/
+community_decks/
+data/
+dist/
+models/
+__pycache__/
 
 owned_cards.txt
 MTGDeckBuilder.spec
