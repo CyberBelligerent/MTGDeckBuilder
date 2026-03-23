@@ -3,6 +3,7 @@ import os
 import sys
 import threading
 import tkinter as tk
+import webbrowser
 from tkinter import filedialog, ttk, scrolledtext
 
 # (feature_col, display_label, default_fraction, optimizer_weight)
@@ -61,7 +62,7 @@ class DeckBuilderApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("MTG Commander Deck Builder - v1.3 - DeckSource + Code Readability")
+        self.title("MTG Commander Deck Builder - v1.3 - Combo Finder")
         self.resizable(True, True)
         self.minsize(820, 680)
 
@@ -317,6 +318,9 @@ class DeckBuilderApp(tk.Tk):
         self._build_btn = ttk.Button(btn_frame, text="▶  Build Deck",
                                      command=self._start_build)
         self._build_btn.pack(side=tk.LEFT)
+        
+        self._load_btn = ttk.Button(btn_frame, text="Load Deck", command=self._load_deck)
+        self._load_btn.pack(side=tk.LEFT, padx=(8, 0))
 
         self._cancel_btn = ttk.Button(btn_frame, text="■  Cancel",
                                       command=self._cancel_build, state=tk.DISABLED)
@@ -374,6 +378,11 @@ class DeckBuilderApp(tk.Tk):
         upg_frame = ttk.Frame(nb)
         nb.add(upg_frame, text="Upgrade Suggestions")
         self._build_upgrades_tab(upg_frame)
+
+        # Combos
+        combos_frame = ttk.Frame(nb)
+        nb.add(combos_frame, text="Combos")
+        self._build_combos_tab(combos_frame)
 
         self._nb = nb
         self._wire_commander_autocomplete()
@@ -513,6 +522,117 @@ class DeckBuilderApp(tk.Tk):
     def _upg_done(self, message: str):
         self._upg_btn.configure(state=tk.NORMAL)
         self._upg_status.configure(text=message)
+
+    # Combos tab
+    def _build_combos_tab(self, parent: ttk.Frame):
+        # Toolbar
+        toolbar = ttk.Frame(parent)
+        toolbar.pack(fill=tk.X, padx=6, pady=(6, 0))
+
+        self._combo_btn = ttk.Button(toolbar, text="Find Combos",
+                                     command=self._run_combo_finder)
+        self._combo_btn.pack(side=tk.LEFT)
+
+        self._combo_status = ttk.Label(toolbar, text="", foreground="gray")
+        self._combo_status.pack(side=tk.LEFT, padx=12)
+
+        desc = (
+            "Combos present in your built deck, powered by Commander Spellbook.\n"
+            "Double-click a row to open the combo page in your browser."
+        )
+        ttk.Label(parent, text=desc, foreground="gray",
+                  justify=tk.LEFT).pack(anchor=tk.W, padx=8, pady=(4, 2))
+
+        # Treeview
+        tree_frame = ttk.Frame(parent)
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=(2, 6))
+
+        cols = ("rank", "cards", "produces", "link")
+        self._combo_tree = ttk.Treeview(tree_frame, columns=cols,
+                                        show="headings", selectmode="browse")
+
+        self._combo_tree.heading("rank",     text="#",        anchor=tk.E)
+        self._combo_tree.heading("cards",    text="Cards",    anchor=tk.W)
+        self._combo_tree.heading("produces", text="Produces", anchor=tk.W)
+        self._combo_tree.heading("link",     text="Link",     anchor=tk.W)
+
+        self._combo_tree.column("rank",     width=40,  stretch=False, anchor=tk.E)
+        self._combo_tree.column("cards",    width=340, stretch=True,  anchor=tk.W)
+        self._combo_tree.column("produces", width=220, stretch=True,  anchor=tk.W)
+        self._combo_tree.column("link",     width=300, stretch=False, anchor=tk.W)
+
+        self._combo_tree.tag_configure("odd",  background="#f5f5f5")
+        self._combo_tree.tag_configure("even", background="#ffffff")
+
+        vsb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL,
+                             command=self._combo_tree.yview)
+        self._combo_tree.configure(yscrollcommand=vsb.set)
+        self._combo_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self._combo_tree.bind("<Double-1>", self._on_combo_double_click)
+        self._combo_rows: list[dict] = []
+
+    def _run_combo_finder(self):
+        import re as _re
+        raw = self._deck_text.get("1.0", tk.END)
+        deck_cards = []
+        for line in raw.splitlines():
+            line = line.strip()
+            if line and not line.startswith("//"):
+                m = _re.match(r'^\d+x?\s+(.+)$', line)
+                deck_cards.append(m.group(1) if m else line)
+
+        if not deck_cards:
+            self._combo_status.configure(text="Build a deck first.")
+            return
+
+        commander = self._commander_var.get().strip()
+        if not commander:
+            self._combo_status.configure(text="Enter a commander name first.")
+            return
+
+        self._combo_btn.configure(state=tk.DISABLED)
+        self._combo_status.configure(text="Querying Commander Spellbook…")
+        self._combo_tree.delete(*self._combo_tree.get_children())
+
+        def _worker():
+            try:
+                from build_deck import find_deck_combos
+                results = find_deck_combos(deck_cards, commander)
+                self.after(0, self._populate_combos, results)
+            except Exception as e:
+                import traceback
+                self.after(0, self._combo_done, f"Error: {e}")
+                print(traceback.format_exc())
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _populate_combos(self, results: list[dict]):
+        self._combo_rows = results
+        self._combo_tree.delete(*self._combo_tree.get_children())
+        for i, combo in enumerate(results, start=1):
+            tag = "odd" if i % 2 else "even"
+            self._combo_tree.insert("", tk.END, iid=str(i - 1), values=(
+                i,
+                ", ".join(combo["cards"]),
+                ", ".join(combo["produces"]),
+                combo["url"],
+            ), tags=(tag,))
+        n = len(results)
+        self._combo_done(f"{n} combo{'s' if n != 1 else ''} found")
+
+    def _combo_done(self, message: str):
+        self._combo_btn.configure(state=tk.NORMAL)
+        self._combo_status.configure(text=message)
+
+    def _on_combo_double_click(self, _event):
+        sel = self._combo_tree.selection()
+        if not sel:
+            return
+        iid = int(sel[0])
+        if 0 <= iid < len(self._combo_rows):
+            webbrowser.open(self._combo_rows[iid]["url"])
 
     # Commander field watcher
     def _on_commander_changed(self, *_):
@@ -730,6 +850,37 @@ class DeckBuilderApp(tk.Tk):
             args=(targets, strategy, role_minimums, nonbasic_counts),
             daemon=True)
         self._build_thread.start()
+
+    def _load_deck(self):
+        import re as _re
+        path = filedialog.askopenfilename(
+            title="Load built deck",
+            filetypes=[('Text files', '*.txt'), ('All files', '*.*')],
+            initialdir=os.path.join(self.BASE_DIR, 'built_decks'),
+        )
+        
+        if not path:
+            return
+        with open(path, encoding='utf-8') as fh:
+            content = fh.read()
+            
+        lines = content.splitlines()
+        commander = ""
+        for i, line in enumerate(lines):
+            if line.strip() == "// Commander":
+                for j in range(i + 1, len(lines)):
+                    m = _re.match(r'^\d+x?\s+(.+)$', lines[j].strip())
+                    if m:
+                        commander = m.group(1)
+                        break
+                break
+        
+        self._populate_deck_tab(content)
+        if commander:
+            self._commander_var.set(commander)
+        
+        self._nb.select(1)
+        self._status_var.set(f"Loaded: {os.path.basename(path)}")
 
     def _run_pipeline(self, targets: dict, strategy: str = "default",
                       role_minimums: dict = None, nonbasic_counts: dict = None):

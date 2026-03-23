@@ -862,6 +862,83 @@ def get_upgrade_suggestions(commander_name: str, owned_path: str, current_deck: 
 
     return suggestions
 
+def _find_deck_combo_helper(card_name: str) -> dict:
+    return {'card': card_name, 'quantity': 1}
+
+# Finds combos you have in the deck
+#   included isn't... working like the API suggests, so currently seems to only use almostIncluded with card matching rules
+#   For example, Niv-Mizzet, Parun and Tandem Lookout. It gives me an almostIncluded not included. I think it's because requirements must be met
+#   Potentially need to look at requirements later
+def find_deck_combos(deck_cards: list, commander_name: str) -> list[dict]:
+    import requests
+
+    commander_norm = commander_name.strip().lower()
+
+    payload = {
+        "commanders": [_find_deck_combo_helper(commander_name.strip())],
+        "cards": [
+            _find_deck_combo_helper(c.strip())
+            for c in deck_cards
+            if c and c.strip().lower() != commander_norm
+        ],
+    }
+    
+    try:
+        resp = requests.post(
+            "https://backend.commanderspellbook.com/find-my-combos?format=json&ordering=-popularity%2Cidentity_count%2Ccard_count%2C-created&q=legal%3Acommander",
+            json=payload,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"Commander Spellbook query failed: {e}")
+        return []
+
+    results = []
+    for combo in data.get("results", {}).get("included", []):
+        combo_id = str(combo.get("id", ""))
+        uses = [b for b in combo.get("uses", [])]
+        cards = [u["card"]["name"] for u in uses]
+        
+        for card in cards:
+            if card not in deck_cards:
+                continue
+        
+        produces = [p['feature']["name"] for p in combo.get("produces", [])]
+
+        combo_object = {
+            "id": combo_id,
+            "cards": cards,
+            "produces": produces,
+            "url": f"https://commanderspellbook.com/combo/{combo_id}/",
+        }
+        
+        results.append(combo_object)
+        
+    for combo in data.get("results", {}).get("almostIncluded", []):
+        combo_id = str(combo.get("id", ""))
+        uses = [b for b in combo.get("uses", [])]
+        cards = [u["card"]["name"] for u in uses]
+        
+        if not all(card in deck_cards for card in cards):
+            continue
+        
+        produces = [p['feature']["name"] for p in combo.get("produces", [])]
+
+        combo_object = {
+            "id": combo_id,
+            "cards": cards,
+            "produces": produces,
+            "url": f"https://commanderspellbook.com/combo/{combo_id}/",
+        }
+        
+        results.append(combo_object)
+
+    results.sort(key=lambda x: len(x["cards"]))
+    return results
+
+
 # Pulls percentages of what the community is doing so you have an idea
 #   of potentially what to set your targets to
 #   Might change this later to a range. Since some decks might be outliers causing weird averages
