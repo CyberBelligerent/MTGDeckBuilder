@@ -619,15 +619,7 @@ def _load_land_freq(deck_json: str) -> dict:
         return {}
 
 
-def build_mana_base(
-        non_land_deck: list,
-        card_df_full: pd.DataFrame,
-        owned_set: set,
-        commander_colors: list,
-        n_lands: int,
-        nonbasic_counts: dict | None = None,
-        land_freq: dict | None = None,
-) -> tuple[list, dict]:
+def build_mana_base(non_land_deck: list, card_df_full: pd.DataFrame, owned_set: set, commander_colors: list, n_lands: int, nonbasic_counts: dict | None = None, land_freq: dict | None = None) -> tuple[list, dict]:
     """
     Three-phase mana base builder.
 

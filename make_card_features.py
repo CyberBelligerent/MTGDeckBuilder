@@ -128,5 +128,3 @@ def main(base_dir=None):
     print(f"Done — {len(df):,} cards written to {out_path}")
 
 
-if __name__ == "__main__":
-    main()

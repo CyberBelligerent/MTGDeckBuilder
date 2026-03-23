@@ -1,4 +1,3 @@
-import argparse
 import re
 
 import requests
@@ -89,7 +88,3 @@ class GoldfishDeckSource(WebScraperDeckSource):
                 cards.extend([m.group(2).strip()] * int(m.group(1)))
 
         return {"commander": commander_name, "cards": cards} if cards else None
-
-# MTGGoldFish backward compatability call
-def fetch_decks(commander_name: str, n_decks: int = 100, output_file: str = None, redownload: bool = False) -> list:
-    return GoldfishDeckSource().fetch_decks(commander_name, n_decks=n_decks, output_file=output_file, redownload=redownload)
