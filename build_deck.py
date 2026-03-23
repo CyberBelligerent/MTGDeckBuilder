@@ -6,6 +6,8 @@ import re
 import threading
 import time
 from contextlib import contextmanager
+
+from deck_source import commander_to_slug  # re-exported; gui.py imports this from here
 import numpy as np
 import pandas as pd
 from collections import Counter
@@ -192,15 +194,6 @@ def _heartbeat(message: str, interval: int = 10):
         stop.set()
 
 
-def commander_to_slug(name: str) -> str:
-    # For DFC cards ("Front // Back"), use only the front face for slug generation
-    name = name.split(' // ')[0]
-    slug = name.lower()
-    slug = re.sub(r"[',\.]", '', slug)
-    slug = re.sub(r'[\s_]+', '-', slug)
-    slug = re.sub(r'[^a-z0-9\-]', '', slug)
-    return slug
-
 # This method was largely updated to include the fix for double facing card names (NAME // NAME)
 #   And returning the full name if partial was given
 def resolve_commander_name(commander_name: str, cards_json_path: str) -> str:
@@ -250,103 +243,18 @@ def filter_by_color_identity(card_df: pd.DataFrame, commander_colors: list) -> p
             mask &= (card_df[col] == 0)
     return card_df[mask]
 
-# Attempts to download from both Archidekt and MTGGoldFish incrementally
+# Attempts to download from all DeckSources incrementally
 #   downloads are saved every deck in-case the program crashes or you close it. So safe to restart
 #   it will create a slug cache based on website first and then output to a single file
 def scrape_commander_decks(commander_name: str, output_file: str, n_decks: int = 100, redownload: bool = False) -> list:
-    import threading
-    from build_using_goldfish import fetch_decks as goldfish_fetch
-    from build_using_archidekt import fetch_decks as archidekt_fetch
+    from build_using_goldfish import GoldfishDeckSource
+    from build_using_archidekt import ArchidektDeckSource
+    from deck_source import DeckSourceRegistry
 
-    base     = output_file.rsplit('.', 1)[0] if '.' in os.path.basename(output_file) else output_file
-    gf_cache = f"{base}_goldfish.json"
-    ar_cache = f"{base}_archidekt.json"
-
-    # Delete the output file if you are forcing a redownload
-    if redownload and os.path.exists(output_file):
-        os.remove(output_file)
-
-    if not redownload and os.path.exists(output_file):
-        try:
-            with open(output_file, encoding='utf-8') as f:
-                cached = json.load(f).get("decks", [])
-            if len(cached) >= n_decks:
-                print(f"\n[Scraper] Merged cache already has {len(cached)} decks — skipping download.")
-                return cached[:n_decks]
-        except Exception:
-            pass
-
-    gf_target = n_decks // 2
-    ar_target = n_decks - gf_target   # gets the odd deck if n_decks is odd
-
-    gf_results: list = []
-    ar_results: list = []
-
-    def run_goldfish():
-        nonlocal gf_results
-        gf_results = goldfish_fetch(
-            commander_name, n_decks=gf_target,
-            output_file=gf_cache, redownload=redownload,
-        )
-
-    def run_archidekt():
-        nonlocal ar_results
-        ar_results = archidekt_fetch(
-            commander_name, n_decks=ar_target,
-            output_file=ar_cache, redownload=redownload,
-        )
-
-    print(f"\n[Scraper] Fetching {gf_target} decks from MTGGoldfish and "
-          f"{ar_target} from Archidekt in parallel...")
-
-    t_gf = threading.Thread(target=run_goldfish, name="goldfish")
-    t_ar = threading.Thread(target=run_archidekt, name="archidekt")
-    t_gf.start()
-    t_ar.start()
-    t_gf.join()
-    t_ar.join()
-
-    gf_got = len(gf_results)
-    ar_got = len(ar_results)
-    print(f"\n[Scraper] Parallel phase done — "
-          f"Goldfish: {gf_got}/{gf_target}, Archidekt: {ar_got}/{ar_target}.")
-
-    # MTGGoldFish didn't have enough decks, download more from Archidekt
-    if gf_got < gf_target:
-        gap = gf_target - gf_got
-        print(f"\n  MTGGoldfish returned {gf_got}/{gf_target} — "
-              f"requesting {gap} more from Archidekt...")
-        ar_results = archidekt_fetch(
-            commander_name, n_decks=ar_target + gap,
-            output_file=ar_cache, redownload=False,
-        )
-        ar_got = len(ar_results)
-
-    # Archidekt didn't have enough decks, download more from MTGGoldFish
-    if ar_got < ar_target:
-        gap = ar_target - ar_got
-        print(f"\n  Archidekt returned {ar_got}/{ar_target} — "
-              f"requesting {gap} more from MTGGoldfish...")
-        gf_results = goldfish_fetch(
-            commander_name, n_decks=gf_target + gap,
-            output_file=gf_cache, redownload=False,
-        )
-        gf_got = len(gf_results)
-
-    decks = gf_results + ar_results
-
-    # Can't really fix this, but will tell you your model isn't that good
-    if len(decks) < n_decks:
-        print(f"\n  Warning: Couldn't pull {n_decks} decks — only found {len(decks)}.")
-    else:
-        decks = decks[:n_decks]
-
-    if output_file:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump({"decks": decks}, f, indent=2)
-
-    print(f"\n  {len(decks)} decks ready.")
-    return decks
+    registry = DeckSourceRegistry()
+    registry.register(GoldfishDeckSource())
+    registry.register(ArchidektDeckSource())
+    return registry.fetch_decks(commander_name, n_decks, output_file, redownload)
 
 # Grabs inclusion% and synergy% from EDHRec to be used as higher ranking cards during generation
 def scrape_edhrec_synergy(commander_name: str, output_file: str, redownload: bool = False) -> dict:
@@ -1377,9 +1285,7 @@ def build_deck(commander_name: str, owned_path: str, deck_json: str = None, mode
     return final_deck[:DECK_SIZE], stats
 
 
-def print_deck_report(commander_name: str, deck: list,
-                      card_df_full: pd.DataFrame, output_file: str = "deck_output.txt",
-                      stats: dict = None):
+def print_deck_report(commander_name: str, deck: list, card_df_full: pd.DataFrame, output_file: str = "deck_output.txt", stats: dict = None):
     known    = [c for c in deck if c in card_df_full.index]
     deck_df  = card_df_full.loc[known]
     total    = len(deck) + 1
